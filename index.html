@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>جمعيتي</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div>
+    <h1>جمعيتي</h1>
+    <div class="sub">إدارة العملاء والصرف والمخزون</div>
+  </div>
+  <button id="backupBtn" class="secondary">نسخة احتياطية</button>
+</header>
+
+<nav id="tabs">
+  <button data-screen="dashboard" class="active">الرئيسية</button>
+  <button data-screen="clients">العملاء</button>
+  <button data-screen="products">الأصناف</button>
+  <button data-screen="dispense">صرف جديد</button>
+  <button data-screen="invoices">الفواتير</button>
+  <button data-screen="settings">الإعدادات</button>
+</nav>
+
+<main>
+<section id="dashboard" class="screen active">
+  <div class="cards">
+    <div class="card"><b id="statClients">0</b><span>العملاء</span></div>
+    <div class="card"><b id="statProducts">0</b><span>الأصناف</span></div>
+    <div class="card"><b id="statDispensed">0</b><span>تم الصرف هذا الشهر</span></div>
+    <div class="card"><b id="statStock">0</b><span>كمية المخزون</span></div>
+  </div>
+  <div class="panel">
+    <h2>حالة العملاء هذا الشهر</h2>
+    <div id="monthlyStatus"></div>
+  </div>
+</section>
+
+<section id="clients" class="screen">
+  <div class="toolbar">
+    <input id="clientSearch" placeholder="ابحث بالاسم أو رقم البطاقة أو الهاتف">
+    <button id="addClientBtn">+ عميل</button>
+  </div>
+  <div id="clientsList"></div>
+</section>
+
+<section id="products" class="screen">
+  <div class="toolbar">
+    <input id="productSearch" placeholder="ابحث عن صنف">
+    <button id="addProductBtn">+ صنف</button>
+  </div>
+  <div id="productsList"></div>
+</section>
+
+<section id="dispense" class="screen">
+  <div class="panel">
+    <h2>صرف جديد</h2>
+    <label>العميل</label>
+    <select id="dispClient"></select>
+    <div id="dispClientInfo" class="hint"></div>
+    <div id="dispenseLines"></div>
+    <button id="addLineBtn" class="secondary">+ إضافة صنف</button>
+    <div class="total">الإجمالي: <b id="dispTotal">0.00</b> جنيه</div>
+    <button id="confirmDispenseBtn" class="primary">تأكيد الصرف نهائيًا</button>
+    <div class="warning">بعد التأكيد لا يتم حذف الفاتورة أو التراجع عنها؛ التصحيح يكون بسجل تصحيح يحافظ على العملية الأصلية.</div>
+  </div>
+</section>
+
+<section id="invoices" class="screen">
+  <div class="toolbar">
+    <input id="invoiceSearch" placeholder="ابحث برقم الفاتورة أو اسم العميل">
+  </div>
+  <div id="invoicesList"></div>
+</section>
+
+<section id="settings" class="screen">
+  <div class="panel">
+    <h2>الإعدادات والبيانات</h2>
+    <label>يوم نهاية دورة الصرف الشهرية
+      <input id="monthEndDay" type="number" min="1" max="28" value="25">
+    </label>
+    <button id="saveSettingsBtn" class="primary">حفظ الإعدادات</button>
+    <hr>
+    <button id="restoreBtn" class="secondary">استرجاع نسخة احتياطية</button>
+    <input type="file" id="restoreFile" accept=".json" hidden>
+    <button id="resetBtn" class="danger">حذف كل البيانات</button>
+    <div class="warning">احتفظ بنسخة احتياطية دورية. البيانات محفوظة محليًا على هذا الجهاز.</div>
+  </div>
+</section>
+</main>
+
+<dialog id="clientDialog">
+<form method="dialog" id="clientForm">
+<h3 id="clientDialogTitle">إضافة عميل</h3>
+<input type="hidden" id="clientId">
+<label>اسم العميل<input id="clientName" required></label>
+<label>رقم بطاقة التموين<input id="cardNumber" required></label>
+<label>عدد أفراد التموين<input id="rationCount" type="number" min="0" value="0"></label>
+<label>عدد أفراد الخبز<input id="flourCount" type="number" min="0" value="0"></label>
+<label>الهاتف<input id="phone"></label>
+<label>العنوان<input id="address"></label>
+<label>ملاحظات<textarea id="notes"></textarea></label>
+<div class="dialog-actions"><button value="cancel">إلغاء</button><button id="saveClientBtn" class="primary" value="default">حفظ</button></div>
+</form>
+</dialog>
+
+<dialog id="productDialog">
+<form method="dialog" id="productForm">
+<h3>إضافة صنف</h3>
+<input type="hidden" id="productId">
+<label>اسم الصنف<input id="productName" required></label>
+<label>الكود<input id="productCode"></label>
+<label>الوحدة<input id="productUnit" value="وحدة"></label>
+<label>السعر بالجنيه<input id="productPrice" type="number" min="0" step="0.01" required></label>
+<label>الحد الأدنى للمخزون<input id="minimumStock" type="number" min="0" step="0.01" value="0"></label>
+<label>الكمية الحالية<input id="initialStock" type="number" min="0" step="0.01" value="0"></label>
+<div class="dialog-actions"><button value="cancel">إلغاء</button><button id="saveProductBtn" class="primary" value="default">حفظ</button></div>
+</form>
+</dialog>
+
+<div id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
