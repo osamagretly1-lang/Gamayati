@@ -81,9 +81,7 @@ function renderClientSelect(){$('dispClient').innerHTML='<option value="">اخت
 function renderLines(){if(!$('dispenseLines').querySelector('.line'))addLine()}
 function addLine(){
  const box=$('dispenseLines'),row=document.createElement('div');row.className='line';
- const list=activeProducts();
- const options=list.map((p,i)=>`<option value="${p.id}"${i===0?' selected':''}>${esc(p.name)} (${money(p.price)}) — مخزون ${money(inventory.find(x=>x.productId===p.id)?.quantity||0)}</option>`).join('');
- row.innerHTML=`<select onchange="calcTotal()">${options||'<option value="">لا توجد أصناف</option>'}</select><input type="number" min="0.01" step="0.01" value="1" oninput="calcTotal()"><span class="lineTotal">0.00</span><button type="button" class="danger" onclick="this.parentElement.remove();calcTotal()">×</button>`;
+ row.innerHTML=`<select onchange="calcTotal()"><option value="">اختر الصنف</option>${activeProducts().map(p=>`<option value="${p.id}">${esc(p.name)} (${money(p.price)}) — مخزون ${money(inventory.find(x=>x.productId===p.id)?.quantity||0)}</option>`).join('')}</select><input type="number" min="0.01" step="0.01" value="1" oninput="calcTotal()"><span class="lineTotal">0.00</span><button type="button" class="danger" onclick="this.parentElement.remove();calcTotal()">×</button>`;
  box.appendChild(row);calcTotal();
 }
 function calcTotal(){let t=0;document.querySelectorAll('#dispenseLines .line').forEach(r=>{const p=products.find(x=>x.id==r.querySelector('select').value),q=Number(r.querySelector('input').value||0),v=p?q*p.price:0;r.querySelector('.lineTotal').textContent=money(v);t+=v});$('dispTotal').textContent=money(t)}
@@ -161,10 +159,6 @@ function addStock(id){
  const p=products.find(x=>x.id===id);if(!p)return;
  $('stockProductId').value=id;$('stockProductName').textContent=`${p.name} — ${p.code}`;$('stockQuantity').value='';$('stockNote').value='';$('stockDialog').showModal()
 }
-$('cancelClientBtn').onclick=()=>$('clientDialog').close();
-$('cancelProductBtn').onclick=()=>$('productDialog').close();
-$('cancelStockBtn').onclick=()=>$('stockDialog').close();
-
 $('addClientBtn').onclick=()=>{$('clientForm').reset();$('clientId').value='';$('clientDialogTitle').textContent='إضافة عميل';$('clientDialog').showModal()};
 $('addProductBtn').onclick=()=>{$('productForm').reset();$('productId').value='';$('productCode').readOnly=true;$('productCode').value='سيتم التوليد تلقائيًا';$('initialStock').disabled=false;$('productDialogTitle').textContent='إضافة صنف';$('productDialog').showModal()};
 
