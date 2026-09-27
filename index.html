@@ -15,7 +15,7 @@
     <h1>جمعيتي</h1>
     <div class="sub">إدارة العملاء والصرف والمخزون</div>
   </div>
-  <button id="backupBtn" class="secondary">نسخة احتياطية</button>
+  <div style="display:flex;gap:6px;align-items:center"><button id="installBtn" class="secondary" style="display:none">تثبيت التطبيق</button><button id="backupBtn" class="secondary">نسخة احتياطية</button></div>
 </header>
 
 <nav id="tabs">
@@ -73,7 +73,7 @@
 
 <section id="invoices" class="screen">
   <div class="toolbar">
-    <input id="invoiceSearch" placeholder="ابحث برقم الفاتورة أو اسم العميل">
+    <input id="invoiceSearch" placeholder="ابحث برقم الفاتورة أو الاسم أو رقم البطاقة">
   </div>
   <div id="invoicesList"></div>
 </section>
@@ -100,6 +100,7 @@
 <input type="hidden" id="clientId">
 <label>اسم العميل<input id="clientName" required></label>
 <label>رقم بطاقة التموين<input id="cardNumber" required></label>
+<label>الرقم السري<input id="secretNumber" required></label>
 <label>عدد أفراد التموين<input id="rationCount" type="number" min="0" value="0"></label>
 <label>عدد أفراد الخبز<input id="flourCount" type="number" min="0" value="0"></label>
 <label>الهاتف<input id="phone"></label>
@@ -111,18 +112,19 @@
 
 <dialog id="productDialog">
 <form method="dialog" id="productForm">
-<h3>إضافة صنف</h3>
+<h3 id="productDialogTitle">إضافة صنف</h3>
 <input type="hidden" id="productId">
 <label>اسم الصنف<input id="productName" required></label>
-<label>الكود<input id="productCode"></label>
+<label>الكود<input id="productCode" readonly></label>
 <label>الوحدة<input id="productUnit" value="وحدة"></label>
 <label>السعر بالجنيه<input id="productPrice" type="number" min="0" step="0.01" required></label>
 <label>الحد الأدنى للمخزون<input id="minimumStock" type="number" min="0" step="0.01" value="0"></label>
-<label>الكمية الحالية<input id="initialStock" type="number" min="0" step="0.01" value="0"></label>
+<label>الرصيد الابتدائي<input id="initialStock" type="number" min="0" step="0.01" value="0"></label>
 <div class="dialog-actions"><button value="cancel">إلغاء</button><button id="saveProductBtn" class="primary" value="default">حفظ</button></div>
 </form>
 </dialog>
 
+<dialog id="stockDialog"><form method="dialog" id="stockForm"><h3>إضافة مخزون</h3><input type="hidden" id="stockProductId"><div class="hint" id="stockProductName"></div><label>الكمية المضافة<input id="stockQuantity" type="number" min="0.01" step="0.01" required></label><label>ملاحظة<input id="stockNote"></label><div class="dialog-actions"><button value="cancel">إلغاء</button><button class="primary" value="default">حفظ</button></div></form></dialog>
 <div id="toast"></div>
 <script src="app.js"></script>
 </body>
