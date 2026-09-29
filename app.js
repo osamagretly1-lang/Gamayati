@@ -1,4 +1,4 @@
-const DB_NAME='GamayatiDB',DB_VERSION=2;
+const DB_NAME='GamayatiDB',DB_VERSION=5;
 let db,clients=[],products=[],inventory=[],invoices=[],settings={monthEndDay:25};
 const $=id=>document.getElementById(id);
 const now=()=>new Date().toISOString();
