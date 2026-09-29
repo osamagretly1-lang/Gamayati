@@ -4,16 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0f766e">
+<meta name="description" content="جمعيتي - نظام إدارة العملاء والمخزون والصرف والفواتير">
 <title>جمعيتي</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header>
-  <div><h1>جمعيتي</h1><div class="sub">إدارة العملاء والصرف والمخزون — محلي على هذا الجهاز</div></div>
-  <button id="backupBtn" class="secondary">نسخة احتياطية</button>
+<header class="app-header">
+  <div class="brand-wrap">
+    <img class="brand-icon" src="icon-192.png" alt="شعار جمعيتي">
+    <div><h1>جمعيتي</h1><div class="sub">نظام إدارة العملاء والمخزون والصرف</div></div>
+  </div>
+  <div class="header-actions">
+    <button id="installBtn" class="secondary" hidden>تثبيت التطبيق</button>
+    <button id="backupBtn" class="secondary">نسخة احتياطية</button>
+  </div>
 </header>
+
 <nav id="tabs">
   <button data-screen="dashboard" class="active">الرئيسية</button>
   <button data-screen="clients">العملاء</button>
@@ -21,55 +30,184 @@
   <button data-screen="inventory">المخزون</button>
   <button data-screen="dispense">صرف جديد</button>
   <button data-screen="invoices">الفواتير</button>
+  <button data-screen="archive">الأرشيف</button>
   <button data-screen="settings">الإعدادات</button>
 </nav>
+
 <main>
 <section id="dashboard" class="screen active">
   <div class="cards">
-    <div class="card"><b id="statClients">0</b><span>العملاء</span></div>
-    <div class="card"><b id="statProducts">0</b><span>الأصناف</span></div>
+    <div class="card"><b id="statClients">0</b><span>العملاء النشطون</span></div>
+    <div class="card"><b id="statProducts">0</b><span>الأصناف النشطة</span></div>
     <div class="card"><b id="statDispensed">0</b><span>تم الصرف هذا الشهر</span></div>
-    <div class="card"><b id="statStock">0</b><span>إجمالي المخزون</span></div>
+    <div class="card"><b id="statLowStock">0</b><span>أصناف تحتاج توريد</span></div>
   </div>
-  <div class="panel"><h2>حالة العملاء هذا الشهر</h2><div id="monthlyStatus"></div></div>
-  <div class="panel"><h2>آخر حركات المخزون</h2><div id="recentInventoryMoves"></div></div>
+  <div class="panel">
+    <div class="panel-head"><h2>حالة العملاء هذا الشهر</h2><span id="currentMonthLabel" class="muted"></span></div>
+    <input id="dashboardClientSearch" class="compact-input" placeholder="ابحث عن عميل لعرض حالته">
+    <div id="monthlyStatus"></div>
+  </div>
 </section>
+
 <section id="clients" class="screen">
-  <div class="toolbar"><input id="clientSearch" placeholder="ابحث بالاسم أو رقم البطاقة أو الهاتف أو الرقم السري"><button id="addClientBtn">+ عميل</button></div>
+  <div class="toolbar">
+    <input id="clientSearch" placeholder="ابحث بالاسم أو رقم البطاقة أو الهاتف">
+    <button id="addClientBtn" class="primary">+ إضافة عميل</button>
+  </div>
   <div id="clientsList"></div>
 </section>
+
 <section id="products" class="screen">
-  <div class="toolbar"><input id="productSearch" placeholder="ابحث عن صنف أو كوده"><button id="addProductBtn">+ صنف</button></div>
+  <div class="toolbar">
+    <input id="productSearch" placeholder="ابحث عن صنف">
+    <button id="addProductBtn" class="primary">+ إضافة صنف</button>
+  </div>
   <div id="productsList"></div>
 </section>
+
+
 <section id="inventory" class="screen">
   <div class="panel">
-    <div class="toolbar"><input id="inventorySearch" placeholder="ابحث في الأصناف"><button id="receiveStockBtn" class="primary">＋ استلام مخزون</button></div>
+    <div class="section-title"><h2>📦 المخزون الحالي</h2><span class="muted">رصيد الأصناف الحالي</span></div>
+    <div class="toolbar"><input id="inventorySearch" placeholder="ابحث عن صنف أو كوده"><button id="inventoryReceiveBtn" class="primary" type="button">＋ استلام مخزون</button></div>
     <div id="inventoryCards" class="cards inventory-cards"></div>
   </div>
   <div class="panel">
-    <h2>📦 سجل حركات المخزون</h2>
+    <div class="section-title"><h2>📋 سجل حركات المخزون</h2><span class="muted">الاستلام والصرف والعكس والتعديلات</span></div>
     <div class="filters">
-      <input id="movementSearch" placeholder="بحث بالصنف أو الملاحظة أو المرجع">
+      <input id="movementSearch" placeholder="بحث بالصنف أو الملاحظة أو رقم الفاتورة">
       <select id="movementType"><option value="">كل الحركات</option><option value="RECEIPT">استلام</option><option value="SALE">صرف</option><option value="REVERSAL">عكس صرف</option><option value="ADJUSTMENT">تعديل رصيد</option><option value="OPENING">رصيد افتتاحي</option></select>
       <label>من <input id="movementFrom" type="date"></label><label>إلى <input id="movementTo" type="date"></label>
     </div>
-    <div class="hint">كل حركة تحفظ: الكمية قبل الحركة، الكمية بعد الحركة، التاريخ والوقت، ونص الملاحظة.</div>
+    <div class="hint">كل حركة تحفظ التاريخ والوقت والكمية قبل وبعد الحركة والملاحظة والمرجع.</div>
     <div id="inventoryLog"></div>
   </div>
 </section>
+
 <section id="dispense" class="screen">
-  <div class="panel"><h2>صرف جديد</h2><label>العميل</label><select id="dispClient"></select><div id="dispClientInfo" class="hint"></div><div id="dispenseLines"></div><button id="addLineBtn" class="secondary">+ إضافة صنف</button><div class="total">الإجمالي: <b id="dispTotal">0.00</b> جنيه</div><button id="confirmDispenseBtn" class="primary full">تأكيد الصرف نهائيًا</button><div class="warning">بعد التأكيد لا تُحذف الفاتورة؛ عند الحاجة للتصحيح يتم إنشاء حركة عكس تحفظ الفاتورة الأصلية وسجل المخزون.</div></div>
+  <div class="panel">
+    <h2>صرف جديد</h2>
+    <label>ابحث عن العميل</label>
+    <div class="customer-picker">
+      <input id="dispClientSearch" autocomplete="off" placeholder="اكتب أول حرفين أو ثلاثة من الاسم أو رقم البطاقة">
+      <button id="clearDispClient" type="button" class="secondary">مسح</button>
+    </div>
+    <div id="dispClientResults" class="search-results"></div>
+    <div id="selectedClientCard" class="selected-card empty">لم يتم اختيار عميل.</div>
+    <input type="hidden" id="dispClientId">
+
+    <div id="dispenseLines"></div>
+    <button id="addLineBtn" class="secondary" type="button">+ إضافة صنف</button>
+    <label class="invoice-notes-label">ملاحظات الفاتورة<textarea id="dispenseNotes" placeholder="مثال: العميل عليه 50 جنيه / له باقي..."></textarea></label>
+    <div class="total">الإجمالي: <b id="dispTotal">0.00</b> جنيه</div>
+    <button id="confirmDispenseBtn" class="primary full" type="button">تأكيد الصرف نهائيًا</button>
+    <div class="warning">الفاتورة المؤكدة لا تُحذف. عند الحاجة للتصحيح نستخدم «عكس العملية» مع بقاء الفاتورة الأصلية وسجلها.</div>
+  </div>
 </section>
-<section id="invoices" class="screen"><div class="toolbar"><input id="invoiceSearch" placeholder="ابحث برقم الفاتورة أو اسم العميل أو البطاقة"></div><div id="invoicesList"></div></section>
+
+<section id="invoices" class="screen">
+  <div class="toolbar">
+    <input id="invoiceSearch" placeholder="ابحث برقم الفاتورة أو اسم العميل أو البطاقة">
+  </div>
+  <div id="invoicesList"></div>
+</section>
+
+<section id="archive" class="screen">
+  <div class="panel"><h2>الأرشيف</h2><div class="muted">الأرشفة لا تحذف البيانات. يمكنك إعادة أي عميل أو صنف للعمل.</div></div>
+  <div class="archive-grid">
+    <div><h3>عملاء مؤرشفون</h3><div id="archivedClientsList"></div></div>
+    <div><h3>أصناف مؤرشفة</h3><div id="archivedProductsList"></div></div>
+  </div>
+</section>
+
 <section id="settings" class="screen">
-  <div class="panel"><h2>الإعدادات والبيانات</h2><label>يوم نهاية دورة الصرف الشهرية<input id="monthEndDay" type="number" min="1" max="28" value="25"></label><button id="saveSettingsBtn" class="primary">حفظ الإعدادات</button><hr><button id="restoreBtn" class="secondary">استرجاع نسخة احتياطية</button><input type="file" id="restoreFile" accept=".json" hidden><button id="resetBtn" class="danger">حذف كل البيانات</button><div class="warning">البيانات محفوظة محليًا في هذا الجهاز. استخدم «نسخة احتياطية» بانتظام.</div></div>
+  <div class="panel">
+    <h2>الإعدادات والبيانات</h2>
+    <label>يوم نهاية دورة الصرف الشهرية
+      <input id="monthEndDay" type="number" min="1" max="28" value="25">
+    </label>
+    <button id="saveSettingsBtn" class="primary full">حفظ الإعدادات</button>
+    <hr>
+    <button id="installSettingsBtn" class="secondary full" hidden>تثبيت التطبيق على الهاتف</button>
+    <button id="backupSettingsBtn" class="secondary full">إنشاء نسخة احتياطية</button>
+    <button id="restoreBtn" class="secondary full">استرجاع نسخة احتياطية</button>
+    <input type="file" id="restoreFile" accept=".json" hidden>
+
+    <hr>
+    <div class="report-panel">
+      <h3>📊 تقرير Excel</h3>
+      <p class="muted">يُنشئ ملف Excel محفوظًا كملف على الهاتف، ويشمل الفواتير وحركات المخزون وحالة كل عميل خلال الشهر المحدد.</p>
+      <div class="report-grid">
+        <label>شهر التقرير<input id="reportMonth" type="month"></label>
+        <label>نطاق التقرير<select id="reportSpan"><option value="1">شهر واحد</option><option value="3">3 شهور</option></select></label>
+      </div>
+      <button id="reportExportBtn" class="primary full" type="button">تصدير تقرير Excel</button>
+    </div>
+    <hr>
+    <button id="resetBtn" class="danger full">حذف كل البيانات</button>
+    <div class="warning">البيانات محفوظة محليًا على هذا الجهاز بواسطة IndexedDB. احتفظ بنسخة احتياطية دورية.</div>
+  </div>
+  <div class="about panel">
+    <img class="about-logo" src="icon-192.png" alt="شعار جمعيتي">
+    <h3>عن جمعيتي</h3>
+    <p><b>جمعيتي</b> — نظام إدارة العملاء والمخزون والصرف.</p>
+    <p>أسامة جرتلي منير</p>
+    <p>واتساب: 01220044157</p>
+    <p>البريد: osamagiritli@gmail.com</p>
+    <p>محمي بحقوق الملكية الفكرية لصالح أسامة جرتلي منير</p>
+    <p>إهداء إلى أختي ❤️</p>
+  </div>
 </section>
 </main>
-<dialog id="clientDialog"><form method="dialog" id="clientForm"><h3 id="clientDialogTitle">إضافة عميل</h3><input type="hidden" id="clientId"><label>اسم العميل<input id="clientName" required></label><label>رقم بطاقة التموين<input id="cardNumber" required></label><label>الرقم السري<input id="secretCode" readonly></label><label>عدد أفراد التموين<input id="rationCount" type="number" min="0" value="0"></label><label>عدد أفراد الخبز<input id="flourCount" type="number" min="0" value="0"></label><label>الهاتف<input id="phone"></label><label>العنوان<input id="address"></label><label>ملاحظات العميل<textarea id="notes"></textarea></label><div class="dialog-actions"><button value="cancel">إلغاء</button><button id="saveClientBtn" class="primary" value="default">حفظ</button></div></form></dialog>
-<dialog id="productDialog"><form method="dialog" id="productForm"><h3 id="productDialogTitle">إضافة صنف</h3><input type="hidden" id="productId"><label>اسم الصنف<input id="productName" required></label><label>الكود<input id="productCode" readonly></label><label>الوحدة<input id="productUnit" value="وحدة"></label><label>السعر بالجنيه<input id="productPrice" type="number" min="0" step="0.01" required></label><label>الحد الأدنى للمخزون<input id="minimumStock" type="number" min="0" step="0.01" value="0"></label><label>الكمية الحالية<input id="initialStock" type="number" min="0" step="0.01" value="0"><small class="hint">عند تغيير الرصيد اكتب ملاحظة، وسيتم تسجيلها كتعديل رصيد في السجل.</small></label><label>ملاحظة تغيير الرصيد<textarea id="stockChangeNote" placeholder="مطلوبة فقط عند تغيير الكمية الحالية"></textarea></label><div class="dialog-actions"><button value="cancel">إلغاء</button><button id="saveProductBtn" class="primary" value="default">حفظ</button></div></form></dialog>
-<dialog id="receiveDialog"><form method="dialog" id="receiveForm"><h3>استلام مخزون</h3><label>الصنف<select id="receiveProduct" required></select></label><label>الكمية المستلمة<input id="receiveQty" type="number" min="0.01" step="0.01" required></label><label>تاريخ ووقت الاستلام<input id="receiveDate" type="datetime-local" required></label><label>ملاحظة الاستلام<textarea id="receiveNote" placeholder="مثال: توريد أول الشهر / كمية إضافية / اسم المورد"></textarea></label><div class="warning">الملاحظة والتاريخ يحفظان داخل سجل المخزون ويمكن مراجعتها لاحقًا.</div><div class="dialog-actions"><button value="cancel">إلغاء</button><button class="primary" value="default">تسجيل الاستلام</button></div></form></dialog>
-<div id="toast"></div>
+
+<dialog id="clientDialog">
+<form method="dialog" id="clientForm">
+<h3 id="clientDialogTitle">إضافة عميل</h3>
+<input type="hidden" id="clientId">
+<label>اسم العميل<input id="clientName" required></label>
+<label>رقم بطاقة التموين<input id="cardNumber" required></label>
+<label>الرقم السري<input id="secretNumber" required inputmode="numeric"></label>
+<label>عدد أفراد التموين<input id="rationCount" type="number" min="0" value="0"></label>
+<label>عدد أفراد الخبز<input id="flourCount" type="number" min="0" value="0"></label>
+<label>الهاتف<input id="phone"></label>
+<label>العنوان<input id="address"></label>
+<label>ملاحظات العميل<textarea id="clientNotes" placeholder="مثال: عليه 50 جنيه / له باقي..."></textarea></label>
+<div class="dialog-actions"><button value="cancel">إلغاء</button><button id="saveClientBtn" class="primary" value="default">حفظ</button></div>
+</form>
+</dialog>
+
+<dialog id="clientDetailsDialog"><div id="clientDetailsContent"></div><div class="dialog-actions"><button id="closeClientDetails" class="secondary">إغلاق</button></div></dialog>
+
+<dialog id="productDialog">
+<form method="dialog" id="productForm">
+<h3 id="productDialogTitle">إضافة صنف</h3>
+<input type="hidden" id="productId">
+<label>اسم الصنف<input id="productName" required></label>
+<label>الكود<input id="productCode" readonly placeholder="يتولد تلقائيًا"></label>
+<label>الوحدة<input id="productUnit" value="وحدة"></label>
+<label>السعر بالجنيه<input id="productPrice" type="number" min="0" step="0.01" required></label>
+<label>الحد الأدنى للمخزون<input id="minimumStock" type="number" min="0" step="0.01" value="0"></label>
+<label id="openingStockWrap">الكمية الافتتاحية<input id="openingStock" type="number" min="0" step="0.01" value="0"></label>
+<div id="productEditHint" class="hint" hidden>تغيير السعر يؤثر على العمليات الجديدة فقط. لتغيير المخزون استخدم «استلام مخزون».</div>
+<div class="dialog-actions"><button value="cancel">إلغاء</button><button id="saveProductBtn" class="primary" value="default">حفظ</button></div>
+</form>
+</dialog>
+
+<dialog id="receiptDialog">
+<form method="dialog" id="receiptForm">
+<h3>استلام مخزون</h3>
+<input type="hidden" id="receiptProductId">
+<div id="receiptProductName" class="selected-card"></div>
+<label>الكمية المستلمة<input id="receiptQty" type="number" min="0.01" step="0.01" required></label>
+<label>تاريخ ووقت الاستلام<input id="receiptDate" type="datetime-local" required></label>
+<label>ملاحظة الاستلام<textarea id="receiptNotes" placeholder="مثال: توريد الشهر / فاتورة المورد..."></textarea></label>
+<div class="dialog-actions"><button value="cancel">إلغاء</button><button class="primary" value="default">تسجيل الاستلام</button></div>
+</form>
+</dialog>
+
+<dialog id="invoiceDialog"><div id="invoiceDetailsContent"></div><div class="dialog-actions"><button id="closeInvoiceDetails" class="secondary">إغلاق</button></div></dialog>
+
+<div id="toast" role="status" aria-live="polite"></div>
 <script src="app.js"></script>
 </body>
 </html>
