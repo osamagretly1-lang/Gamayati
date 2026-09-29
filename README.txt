@@ -18,3 +18,6 @@
 - PWA مع أيقونات PNG 192/512 وService Worker بإصدار v05.
 
 تنبيه: GitHub Pages عام. لا تضع بيانات عملاء حقيقية على نسخة عامة دون طبقة حماية مناسبة. النسخ الاحتياطي مشفر؟ لا، ملف النسخة الاحتياطية JSON عادي ويجب حفظه بأمان.
+
+
+Repair bundle: complete v05 application restored; service-worker cache namespace bumped to v06 to force replacement of stale web assets. IndexedDB schema remains DB_VERSION=5.
