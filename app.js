@@ -1,5 +1,5 @@
 const DB_NAME='GamayatiDB',DB_VERSION=6;
-const APP_VERSION=8, DELETE_PASSWORD='Osama@Rania@122026';
+const APP_VERSION=9, DELETE_PASSWORD='Osama@Rania@122026';
 let db,clients=[],products=[],inventory=[],invoices=[],inventoryTransactions=[],settings={monthEndDay:25};
 let deferredInstallPrompt=null;
 const $=id=>document.getElementById(id);
@@ -265,12 +265,47 @@ async function restoreData(file){
 
 function shiftMonth(key,delta){const [y,m]=String(key).split('-').map(Number);const d=new Date(y,m-1+delta,1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}
 function monthRange(start,count){return Array.from({length:count},(_,i)=>shiftMonth(start,i))}
-function reportMonthFrom(value){if(value instanceof Date)return Number.isNaN(value.getTime())?'':localMonthKey(value);const s=String(value??'').trim();if(/^\d{4}-\d{2}$/.test(s))return s;const d=new Date(s);return Number.isNaN(d.getTime())?'':localMonthKey(d)}
-function reportDateValue(value){if(value instanceof Date)return Number.isNaN(value.getTime())?null:value;const d=new Date(value);return Number.isNaN(d.getTime())?null:d}
+function normalizeMonthValue(value){
+  if(value===null||value===undefined||value==='')return '';
+  if(typeof value==='number'){
+    const s=String(value);
+    if(/^\d{6}$/.test(s))return s.slice(0,4)+'-'+s.slice(4,6);
+    if(/^\d{4}$/.test(s))return '';
+  }
+  if(value instanceof Date)return Number.isNaN(value.getTime())?'':localMonthKey(value);
+  let s=String(value).trim();
+  s=s.replace(/^['"]|['"]$/g,'');
+  let m=s.match(/^(\d{4})[-\/.](\d{1,2})(?:[-\/.]\d{1,2})?$/);
+  if(m)return `${m[1]}-${String(Number(m[2])).padStart(2,'0')}`;
+  m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/);
+  if(m)return `${m[3]}-${String(Number(m[2])).padStart(2,'0')}`;
+  const d=new Date(s);
+  return Number.isNaN(d.getTime())?'':localMonthKey(d);
+}
+function firstValue(obj,names){for(const n of names){const v=obj?.[n];if(v!==undefined&&v!==null&&String(v)!=='')return v}return ''}
+function reportDateValue(value){
+  if(value instanceof Date)return Number.isNaN(value.getTime())?null:value;
+  if(typeof value==='number'){const d=new Date(value);return Number.isNaN(d.getTime())?null:d}
+  if(value===null||value===undefined||value==='')return null;
+  const s=String(value).trim();
+  if(/^\d{1,2}[-\/.]\d{1,2}[-\/.]\d{4}$/.test(s)){const p=s.split(/[-\/.]/).map(Number);const d=new Date(p[2],p[1]-1,p[0]);return Number.isNaN(d.getTime())?null:d}
+  const d=new Date(s);return Number.isNaN(d.getTime())?null:d;
+}
 function reportDateText(value){const d=reportDateValue(value);return d?localDateTime(d):''}
-function reportInvoiceMonth(i){return String(i?.serviceMonth||reportMonthFrom(i?.issuedAt)||'')}
-function reportMoveDate(x){return x?.createdAt||x?.recordedAt||x?.date||x?.timestamp||''}
-function reportAuditLabel(a){const map={CREATE_DISPENSE:'إنشاء صرف/فاتورة',REVERSE_INVOICE:'عكس فاتورة',RECEIVE_STOCK:'استلام مخزون',CREATE_CLIENT:'إضافة عميل',UPDATE_CLIENT:'تعديل عميل',ARCHIVE_CLIENT:'أرشفة عميل',RESTORE_CLIENT:'إعادة عميل',CREATE_PRODUCT:'إضافة صنف',UPDATE_PRODUCT:'تعديل صنف',ARCHIVE_PRODUCT:'أرشفة صنف',RESTORE_PRODUCT:'إعادة صنف'};return map[a]||String(a||'نشاط')}
+function reportInvoiceDate(i){return firstValue(i,['issuedAt','date','createdAt','timestamp','recordedAt','datetime','created_at'])}
+function reportInvoiceMonth(i){return normalizeMonthValue(firstValue(i,['serviceMonth','month','period','service_month']))||normalizeMonthValue(reportInvoiceDate(i))}
+function reportMoveDate(x){return firstValue(x,['createdAt','recordedAt','date','timestamp','datetime','created_at'])}
+function reportMoveMonth(x){return normalizeMonthValue(firstValue(x,['month','period']))||normalizeMonthValue(reportMoveDate(x))}
+function reportAuditDate(a){return firstValue(a,['createdAt','recordedAt','date','timestamp','datetime','created_at'])}
+function reportAuditMonth(a){return normalizeMonthValue(firstValue(a,['month','period']))||normalizeMonthValue(reportAuditDate(a))}
+function reportInvoiceStatus(i){const s=String(firstValue(i,['status','state'])||'').toUpperCase();if(['CONFIRMED','COMPLETED','PAID','DONE','مؤكدة','تم الصرف','CONFIRM'].includes(s))return 'مؤكدة';return i?.reversed?'معكوسة':(s||'غير محددة')}
+function reportIsConfirmed(i){const s=String(firstValue(i,['status','state'])||'').toUpperCase();return ['CONFIRMED','COMPLETED','PAID','DONE','مؤكدة','تم الصرف','CONFIRM'].includes(s)}
+function reportClientId(c){return firstValue(c,['id','clientId'])}
+function reportProductId(p){return firstValue(p,['id','productId'])}
+function reportClientName(rc,id){const c=rc.find(x=>String(reportClientId(x))===String(id));return c?.fullName||c?.name||`عميل #${id}`}
+function reportProductName(rp,id){const p=rp.find(x=>String(reportProductId(x))===String(id));return p?.name||p?.productName||`صنف #${id}`}
+function reportQty(x){return Number(firstValue(x,['quantityChange','qtyChange','quantity','qty','amount'])||0)}
+function reportAuditLabel(a){const key=String(a?.action||a?.type||'');const map={CREATE_DISPENSE:'إنشاء صرف/فاتورة',REVERSE_INVOICE:'عكس فاتورة',RECEIVE_STOCK:'استلام مخزون',CREATE_CLIENT:'إضافة عميل',UPDATE_CLIENT:'تعديل عميل',ARCHIVE_CLIENT:'أرشفة عميل',RESTORE_CLIENT:'إعادة عميل',CREATE_PRODUCT:'إضافة صنف',UPDATE_PRODUCT:'تعديل صنف',ARCHIVE_PRODUCT:'أرشفة صنف',RESTORE_PRODUCT:'إعادة صنف'};return map[key]||key||'نشاط'}
 function xlsxSafe(value){if(value===null||value===undefined)return'';if(typeof value==='number')return Number.isFinite(value)?value:String(value);if(value instanceof Date)return reportDateText(value);return String(value)}
 
 function utf8(s){return new TextEncoder().encode(String(s??''))}
@@ -282,39 +317,38 @@ function zipStore(entries){const local=[],central=[];let offset=0;for(const e of
 function xmlEsc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;')}
 function colLetter(n){let s='';while(n){let r=(n-1)%26;s=String.fromCharCode(65+r)+s;n=Math.floor((n-1)/26)}return s}
 function sheetXml(rows,widths=[],sharedIndex=new Map()){
-  const lastCol=colLetter(Math.max(1,rows.reduce((m,r)=>Math.max(m,r.length),1)));
+  const lastCol=colLetter(Math.max(1,rows.reduce((m,r)=>Math.max(m,r?.length||0),1)));
   const lastRow=Math.max(1,rows.length);
-  let xml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0" rightToLeft="1"/></sheetViews><cols>`;
+  let xml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:${lastCol}${lastRow}"/><sheetViews><sheetView workbookViewId="0" rightToLeft="1"/></sheetViews><cols>`;
   for(let i=0;i<widths.length;i++)xml+=`<col min="${i+1}" max="${i+1}" width="${Math.min(42,Math.max(9,widths[i]||14))}" customWidth="1"/>`;
   xml+=`</cols><sheetData>`;
   for(let r=0;r<rows.length;r++){
     const row=rows[r]||[];xml+=`<row r="${r+1}">`;
     for(let c=0;c<row.length;c++){
-      const ref=colLetter(c+1)+(r+1),v=row[c];
-      if(v===null||v===undefined||v==='')continue;
+      const ref=colLetter(c+1)+(r+1),v=row[c];if(v===null||v===undefined||v==='')continue;
       const isNum=typeof v==='number'&&Number.isFinite(v);
       if(isNum)xml+=`<c r="${ref}" s="${Number.isInteger(v)?0:2}"><v>${v}</v></c>`;
-      else {const idx=sharedIndex.get(String(v));xml+=`<c r="${ref}"${r===0?' s="1"':''} t="s"><v>${idx}</v></c>`;}
+      else {const idx=sharedIndex.get(String(v));if(idx===undefined)continue;xml+=`<c r="${ref}"${r===0?' s="1"':''} t="s"><v>${idx}</v></c>`;}
     }
     xml+=`</row>`;
   }
-  xml+=`</sheetData><autoFilter ref="A1:${lastCol}${lastRow}"/></worksheet>`;
+  xml+=`</sheetData><autoFilter ref="A1:${lastCol}${lastRow}"/><pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.2" footer="0.2"/></worksheet>`;
   return xml;
 }
 function buildXlsx(sheetDefs){
   const strings=[],sharedIndex=new Map();
   const addString=v=>{const s=String(v??'');if(!sharedIndex.has(s)){sharedIndex.set(s,strings.length);strings.push(s)}return sharedIndex.get(s)};
-  for(const sheet of sheetDefs)for(const row of (sheet.rows||[]))for(const v of (row||[])){
-    if(v!==null&&v!==undefined&&v!==''&&!(typeof v==='number'&&Number.isFinite(v)))addString(v);
-  }
+  for(const sheet of sheetDefs)for(const row of (sheet.rows||[]))for(const v of (row||[]))if(v!==null&&v!==undefined&&v!==''&&!(typeof v==='number'&&Number.isFinite(v)))addString(v);
   const sharedXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${strings.length}" uniqueCount="${strings.length}">${strings.map(s=>`<si><t xml:space="preserve">${xmlEsc(s)}</t></si>`).join('')}</sst>`;
   const overrides=sheetDefs.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('');
   const rels=sheetDefs.map((_,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('');
   const sheets=sheetDefs.map((s,i)=>`<sheet name="${xmlEsc(s.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('');
   const files=[
-    ['[Content_Types].xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>${overrides}</Types>`],
-    ['_rels/.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
-    ['xl/workbook.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets>${sheets}</sheets></workbook>`],
+    ['[Content_Types].xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>${overrides}</Types>`],
+    ['_rels/.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>`],
+    ['docProps/core.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>تقرير جمعيتي</dc:title><dc:creator>جمعيتي</dc:creator><cp:lastModifiedBy>جمعيتي</cp:lastModifiedBy></cp:coreProperties>`],
+    ['docProps/app.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>جمعيتي</Application><DocSecurity>0</DocSecurity><ScaleCrop>false</ScaleCrop></Properties>`],
+    ['xl/workbook.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><workbookPr date1904="false"/><bookViews><workbookView showSheetTabs="1"/></bookViews><calcPr calcMode="auto"/><sheets>${sheets}</sheets></workbook>`],
     ['xl/_rels/workbook.xml.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels}<Relationship Id="rId${sheetDefs.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId${sheetDefs.length+2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/></Relationships>`],
     ['xl/styles.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0.00"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Arial"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF0F766E"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="1" fillId="1" borderId="0" applyFont="1" applyFill="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" applyNumberFormat="1"/></cellXfs></styleSheet>`],
     ['xl/sharedStrings.xml',sharedXml]
@@ -322,87 +356,95 @@ function buildXlsx(sheetDefs){
   for(let i=0;i<sheetDefs.length;i++)files.push([`xl/worksheets/sheet${i+1}.xml`,sheetXml(sheetDefs[i].rows,sheetDefs[i].widths,sharedIndex)]);
   return new Uint8Array(zipStore(files.map(([name,data])=>({name,data}))));
 }
+
 async function exportReport(){
   try{
     const start=$('reportMonth').value||localMonthKey(),count=Number($('reportSpan').value||1);
     if(!/^\d{4}-\d{2}$/.test(start))return alert('اختر شهر التقرير.');
     const months=monthRange(start,count),monthSet=new Set(months),from=months[0],to=months[months.length-1];
 
-    // Read everything fresh from IndexedDB at the moment of export.
+    // Read the database directly at export time. Never depend on the screen cache.
     const [rc,rp,ri,rin,rit,rm,ra,rs]=await Promise.all([
       all('clients'),all('products'),all('inventory'),all('invoices'),all('invoiceItems'),all('inventoryTransactions'),all('auditLogs'),all('settings')
     ]);
+    const clientName=id=>reportClientName(rc,id),productNameReport=id=>reportProductName(rp,id);
     const reportMonthEnd=Number(rs.find(x=>x.key==='monthEndDay')?.value||25);
-    const clientName=id=>rc.find(c=>Number(c.id)===Number(id))?.fullName||`عميل #${id}`;
-    const productNameReport=id=>rp.find(p=>Number(p.id)===Number(id))?.name||`صنف #${id}`;
-    const invoiceInRange=rin.filter(i=>monthSet.has(reportInvoiceMonth(i))).slice().sort((a,b)=>{
-      const da=reportDateValue(a.issuedAt)?.getTime()||0,db=reportDateValue(b.issuedAt)?.getTime()||0;return da-db||Number(a.id)-Number(b.id)
-    });
-    const invoiceIds=new Set(invoiceInRange.map(i=>Number(i.id)));
-    const detailItems=rit.filter(x=>invoiceIds.has(Number(x.invoiceId)));
-    const moves=rm.filter(x=>monthSet.has(reportMonthFrom(reportMoveDate(x)))).slice().sort((a,b)=>(reportDateValue(a.createdAt||a.recordedAt)?.getTime()||0)-(reportDateValue(b.createdAt||b.recordedAt)?.getTime()||0)||Number(a.id)-Number(b.id));
-    const audits=ra.filter(a=>monthSet.has(reportMonthFrom(a.createdAt||a.recordedAt||a.date||a.timestamp))).slice().sort((a,b)=>(reportDateValue(a.createdAt||a.recordedAt)?.getTime()||0)-(reportDateValue(b.createdAt||b.recordedAt)?.getTime()||0)||Number(a.id)-Number(b.id));
+    const invoiceMonth=i=>reportInvoiceMonth(i), invoiceDate=i=>reportInvoiceDate(i);
 
-    const clientsForMonth=m=>rc.filter(c=>{const created=reportMonthFrom(c.createdAt||c.updatedAt);return !created||created<=m});
+    const invoiceInRange=rin.filter(i=>monthSet.has(invoiceMonth(i))).slice().sort((a,b)=>(reportDateValue(invoiceDate(a))?.getTime()||0)-(reportDateValue(invoiceDate(b))?.getTime()||0)||Number(a.id||0)-Number(b.id||0));
+    const moves=rm.filter(x=>monthSet.has(reportMoveMonth(x))).slice().sort((a,b)=>(reportDateValue(reportMoveDate(a))?.getTime()||0)-(reportDateValue(reportMoveDate(b))?.getTime()||0)||Number(a.id||0)-Number(b.id||0));
+    const audits=ra.filter(a=>monthSet.has(reportAuditMonth(a))).slice().sort((a,b)=>(reportDateValue(reportAuditDate(a))?.getTime()||0)-(reportDateValue(reportAuditDate(b))?.getTime()||0)||Number(a.id||0)-Number(b.id||0));
+    const detailItems=rit.filter(x=>invoiceInRange.some(i=>String(i.id)===String(x.invoiceId)));
+
+    const rawInvoiceRows=rin.slice().sort((a,b)=>(reportDateValue(invoiceDate(a))?.getTime()||0)-(reportDateValue(invoiceDate(b))?.getTime()||0)||Number(a.id||0)-Number(b.id||0));
+    const rawMoveRows=rm.slice().sort((a,b)=>(reportDateValue(reportMoveDate(a))?.getTime()||0)-(reportDateValue(reportMoveDate(b))?.getTime()||0)||Number(a.id||0)-Number(b.id||0));
+    const rawAuditRows=ra.slice().sort((a,b)=>(reportDateValue(reportAuditDate(a))?.getTime()||0)-(reportDateValue(reportAuditDate(b))?.getTime()||0)||Number(a.id||0)-Number(b.id||0));
+
+    const clientsForMonth=m=>rc.filter(c=>{const created=normalizeMonthValue(firstValue(c,['createdAt','updatedAt','date']));return !created||created<=m});
     const statusForClient=(c,m)=>{
-      const cinv=invoiceInRange.filter(i=>Number(i.clientId)===Number(c.id)&&reportInvoiceMonth(i)===m);
-      if(cinv.some(i=>i.status==='CONFIRMED'&&!i.reversed))return'تم الصرف';
-      const current=localMonthKey();
-      const deadlinePassed=m<current||(m===current&&new Date().getDate()>reportMonthEnd);
-      if(deadlinePassed)return'فات عليه الشهر';
-      return'لم يصرف';
+      const cinv=rin.filter(i=>String(i.clientId)===String(c.id)&&invoiceMonth(i)===m);
+      if(cinv.some(i=>reportIsConfirmed(i)&&!i.reversed))return'تم الصرف';
+      const current=localMonthKey(),deadlinePassed=m<current||(m===current&&new Date().getDate()>reportMonthEnd);
+      return deadlinePassed?'فات عليه الشهر':'لم يصرف';
     };
 
-    const summaryRows=[['الشهر','العملاء الموجودون في الفترة','تم الصرف','لم يصرف حاليًا','فات عليه الشهر','الفواتير المؤكدة','الفواتير المعكوسة','إجمالي قيمة الصرف','حركات استلام المخزون','كمية الاستلام','كمية الصرف','كمية العكس','التعديلات/الأرصدة']];
-    for(const m of months){
-      const monthClients=clientsForMonth(m);
-      const receivedIds=new Set(invoiceInRange.filter(i=>reportInvoiceMonth(i)===m&&i.status==='CONFIRMED'&&!i.reversed).map(i=>Number(i.clientId)));
-      const pending=Math.max(0,monthClients.length-receivedIds.size);
-      const current=localMonthKey(),deadlinePassed=m<current||(m===current&&new Date().getDate()>reportMonthEnd);
-      const late=deadlinePassed?pending:0,notYet=pending-late;
-      const ms=moves.filter(x=>reportMonthFrom(reportMoveDate(x))===m);
-      const confirmed=invoiceInRange.filter(i=>reportInvoiceMonth(i)===m&&i.status==='CONFIRMED'&&!i.reversed);
-      const reversed=invoiceInRange.filter(i=>reportInvoiceMonth(i)===m&&i.reversed);
-      summaryRows.push([monthLabel(m),monthClients.length,receivedIds.size,notYet,late,confirmed.length,reversed.length,confirmed.reduce((s,i)=>s+Number(i.total||0),0),ms.filter(x=>x.type==='RECEIPT').length,ms.filter(x=>x.type==='RECEIPT').reduce((s,x)=>s+Math.abs(Number(x.quantityChange||0)),0),ms.filter(x=>x.type==='SALE').reduce((s,x)=>s+Math.abs(Number(x.quantityChange||0)),0),ms.filter(x=>x.type==='REVERSAL').reduce((s,x)=>s+Math.abs(Number(x.quantityChange||0)),0),ms.filter(x=>x.type==='ADJUSTMENT'||x.type==='OPENING').reduce((s,x)=>s+Number(x.quantityChange||0),0)]);
-    }
-    if(invoiceInRange.length===0&&moves.length===0)summaryRows.push(['معلومة',`لا توجد عمليات مسجلة في الفترة المحددة (${monthLabel(from)}${count===3?' إلى '+monthLabel(to):''}). اختر الشهر الذي تمت فيه العملية.`,,,,,,,,,,,,]);
+    const summaryRows=[['البند','القيمة']];
+    summaryRows.push(['الفترة المطلوبة',monthLabel(from)+(count===3?' إلى '+monthLabel(to):'')]);
+    summaryRows.push(['العملاء في قاعدة البيانات',rc.length]);
+    summaryRows.push(['الأصناف في قاعدة البيانات',rp.length]);
+    summaryRows.push(['الفواتير الموجودة على الجهاز',rin.length]);
+    summaryRows.push(['فواتير داخل الفترة المطلوبة',invoiceInRange.length]);
+    summaryRows.push(['حركات المخزون الموجودة على الجهاز',rm.length]);
+    summaryRows.push(['حركات المخزون داخل الفترة المطلوبة',moves.length]);
+    summaryRows.push(['سجل النشاط الموجود على الجهاز',ra.length]);
+    summaryRows.push(['سجل النشاط داخل الفترة المطلوبة',audits.length]);
+    summaryRows.push(['ملاحظة','ورقة "كل البيانات على الجهاز" تحتوي على السجلات الفعلية الموجودة في قاعدة جمعيتي، حتى لو كانت بتاريخ خارج الفترة.']);
+    if(!rin.length&&!rm.length&&!ra.length)summaryRows.push(['تنبيه','قاعدة البيانات لا تحتوي حاليًا على فواتير أو حركات مخزون أو سجل نشاط.']);
 
     const clientRows=[['العميل','رقم البطاقة','الشهر','الحالة','تاريخ الصرف في الشهر']];
     for(const m of months)for(const c of clientsForMonth(m)){
-      const hit=invoiceInRange.filter(i=>Number(i.clientId)===Number(c.id)&&reportInvoiceMonth(i)===m&&i.status==='CONFIRMED'&&!i.reversed).sort((a,b)=>(reportDateValue(b.issuedAt)?.getTime()||0)-(reportDateValue(a.issuedAt)?.getTime()||0))[0];
-      clientRows.push([c.fullName,c.cardNumber,monthLabel(m),statusForClient(c,m),hit?reportDateText(hit.issuedAt):'']);
+      const hit=rin.filter(i=>String(i.clientId)===String(c.id)&&invoiceMonth(i)===m&&reportIsConfirmed(i)&&!i.reversed).sort((a,b)=>(reportDateValue(invoiceDate(b))?.getTime()||0)-(reportDateValue(invoiceDate(a))?.getTime()||0))[0];
+      clientRows.push([c.fullName||c.name||'',c.cardNumber||'',monthLabel(m),statusForClient(c,m),hit?reportDateText(invoiceDate(hit)):'']);
     }
 
-    const invoiceRows=[['رقم الفاتورة','التاريخ والوقت','الشهر','العميل','رقم البطاقة','الحالة','الصنف','الكمية','سعر الوحدة','إجمالي السطر','إجمالي الفاتورة','ملاحظات الفاتورة']];
+    const invoiceRows=[['رقم الفاتورة','التاريخ والوقت','الشهر','العميل','رقم البطاقة','الحالة','الصنف','الكمية','سعر الوحدة','إجمالي السطر','إجمالي الفاتورة','الملاحظات']];
     for(const inv of invoiceInRange){
-      const its=detailItems.filter(x=>Number(x.invoiceId)===Number(inv.id));
-      if(!its.length)invoiceRows.push([inv.id,reportDateText(inv.issuedAt),monthLabel(reportInvoiceMonth(inv)),inv.clientNameSnapshot||clientName(inv.clientId),inv.cardNumberSnapshot||rc.find(c=>Number(c.id)===Number(inv.clientId))?.cardNumber||'',inv.reversed?'معكوسة':(inv.status==='CONFIRMED'?'مؤكدة':'غير مؤكدة'),'','','', '',Number(inv.total||0),inv.notes||'']);
-      else for(const x of its)invoiceRows.push([inv.id,reportDateText(inv.issuedAt),monthLabel(reportInvoiceMonth(inv)),inv.clientNameSnapshot||clientName(inv.clientId),inv.cardNumberSnapshot||rc.find(c=>Number(c.id)===Number(inv.clientId))?.cardNumber||'',inv.reversed?'معكوسة':(inv.status==='CONFIRMED'?'مؤكدة':'غير مؤكدة'),x.productNameSnapshot||productNameReport(x.productId),Number(x.quantity||0),Number(x.unitPrice||0),Number(x.lineTotal||0),Number(inv.total||0),inv.notes||'']);
+      const its=detailItems.filter(x=>String(x.invoiceId)===String(inv.id));
+      if(!its.length)invoiceRows.push([inv.id||'',reportDateText(invoiceDate(inv)),monthLabel(invoiceMonth(inv)),inv.clientNameSnapshot||clientName(inv.clientId),inv.cardNumberSnapshot||rc.find(c=>String(c.id)===String(inv.clientId))?.cardNumber||'',reportInvoiceStatus(inv),'','','','',Number(inv.total||0),inv.notes||inv.note||'']);
+      else for(const x of its)invoiceRows.push([inv.id||'',reportDateText(invoiceDate(inv)),monthLabel(invoiceMonth(inv)),inv.clientNameSnapshot||clientName(inv.clientId),inv.cardNumberSnapshot||rc.find(c=>String(c.id)===String(inv.clientId))?.cardNumber||'',reportInvoiceStatus(inv),x.productNameSnapshot||productNameReport(firstValue(x,['productId','productID'])),Number(firstValue(x,['quantity','qty'])||0),Number(x.unitPrice||0),Number(x.lineTotal||0),Number(inv.total||0),inv.notes||inv.note||'']);
     }
+
+    const allInvoiceRows=[['رقم الفاتورة','التاريخ والوقت','الشهر','العميل','البطاقة','الحالة','الإجمالي','الملاحظات']];
+    for(const inv of rawInvoiceRows)allInvoiceRows.push([inv.id||'',reportDateText(invoiceDate(inv)),invoiceMonth(inv)?monthLabel(invoiceMonth(inv)):'',inv.clientNameSnapshot||clientName(inv.clientId),inv.cardNumberSnapshot||rc.find(c=>String(c.id)===String(inv.clientId))?.cardNumber||'',reportInvoiceStatus(inv),Number(inv.total||0),inv.notes||inv.note||'']);
 
     const moveRows=[['التاريخ والوقت','نوع الحركة','الصنف','الكمية +/-','قبل','بعد','مرجع الفاتورة','الملاحظة']];
-    for(const x of moves)moveRows.push([reportDateText(reportMoveDate(x)),typeLabel(x.type),productNameReport(x.productId),Number(x.quantityChange||0),Number(x.quantityBefore||0),Number(x.quantityAfter||0),x.referenceId?`#${x.referenceId}`:'',x.note||'']);
+    for(const x of moves)moveRows.push([reportDateText(reportMoveDate(x)),typeLabel(x.type),productNameReport(firstValue(x,['productId','productID'])),reportQty(x),Number(firstValue(x,['quantityBefore','before'])||0),Number(firstValue(x,['quantityAfter','after'])||0),x.referenceId?`#${x.referenceId}`:'',x.note||x.notes||'']);
+
+    const allMoveRows=[['التاريخ والوقت','الشهر','نوع الحركة','الصنف','الكمية +/-','قبل','بعد','المرجع','الملاحظة']];
+    for(const x of rawMoveRows)allMoveRows.push([reportDateText(reportMoveDate(x)),reportMoveMonth(x)?monthLabel(reportMoveMonth(x)):'',typeLabel(x.type),productNameReport(firstValue(x,['productId','productID'])),reportQty(x),Number(firstValue(x,['quantityBefore','before'])||0),Number(firstValue(x,['quantityAfter','after'])||0),x.referenceId?`#${x.referenceId}`:'',x.note||x.notes||'']);
 
     const auditRows=[['التاريخ والوقت','العملية','النوع','المعرف','التفصيل / الملاحظة']];
-    for(const a of audits)auditRows.push([reportDateText(a.createdAt||a.recordedAt||a.date||a.timestamp),reportAuditLabel(a.action),a.entityType||'',a.entityId??'',a.note||'']);
+    for(const a of audits)auditRows.push([reportDateText(reportAuditDate(a)),reportAuditLabel(a),a.entityType||a.entity||'',a.entityId??a.id??'',a.note||a.notes||'']);
 
-    const opRows=[['التاريخ والوقت','نوع العملية','الشهر','العميل','البطاقة','الفاتورة','الصنف','الكمية','القيمة','الحالة/التفصيل','الملاحظة']];
-    for(const inv of invoiceInRange)opRows.push([reportDateText(inv.issuedAt),'صرف/فاتورة',monthLabel(reportInvoiceMonth(inv)),inv.clientNameSnapshot||clientName(inv.clientId),inv.cardNumberSnapshot||'',`#${inv.id}`,'',0,Number(inv.total||0),inv.reversed?'معكوسة':(inv.status==='CONFIRMED'?'مؤكدة':'غير مؤكدة'),inv.notes||'']);
-    for(const x of moves)opRows.push([reportDateText(reportMoveDate(x)),typeLabel(x.type),reportMonthFrom(reportMoveDate(x)),x.referenceId?clientName(invoiceInRange.find(i=>Number(i.id)===Number(x.referenceId))?.clientId):'',invoiceInRange.find(i=>Number(i.id)===Number(x.referenceId))?.cardNumberSnapshot||'',x.referenceId?`#${x.referenceId}`:'',productNameReport(x.productId),Number(x.quantityChange||0),'',typeLabel(x.type),x.note||'']);
-    for(const a of audits)opRows.push([reportDateText(a.createdAt||a.recordedAt||a.date||a.timestamp),reportAuditLabel(a.action),reportMonthFrom(a.createdAt||a.recordedAt||a.date||a.timestamp),a.entityType==='client'?clientName(a.entityId):'',a.entityType==='client'?rc.find(c=>Number(c.id)===Number(a.entityId))?.cardNumber||'':'',a.entityType==='invoice'&&a.entityId?`#${a.entityId}`:'',a.entityType==='product'?productNameReport(a.entityId):'', '', '',reportAuditLabel(a.action),a.note||'']);
+    const rawRows=[['المصدر','التاريخ والوقت','الشهر','النوع','المرجع/المعرف','العميل/الوصف','الصنف','الكمية','القيمة','الملاحظة']];
+    for(const inv of rawInvoiceRows)rawRows.push(['فاتورة',reportDateText(invoiceDate(inv)),invoiceMonth(inv),reportInvoiceStatus(inv),`#${inv.id||''}`,inv.clientNameSnapshot||clientName(inv.clientId), '', '',Number(inv.total||0),inv.notes||inv.note||'']);
+    for(const x of rawMoveRows)rawRows.push(['حركة مخزون',reportDateText(reportMoveDate(x)),reportMoveMonth(x),typeLabel(x.type),x.referenceId?`#${x.referenceId}`:(x.id??''),'',productNameReport(firstValue(x,['productId','productID'])),reportQty(x),'',x.note||x.notes||'']);
+    for(const a of rawAuditRows)rawRows.push(['سجل نشاط',reportDateText(reportAuditDate(a)),reportAuditMonth(a),reportAuditLabel(a),a.entityId??a.id??'',a.entityType||a.entity||'','','','',a.note||a.notes||'']);
 
     const defs=[
-      {name:'ملخص التقرير',rows:summaryRows,widths:[20,24,14,18,18,18,18,20,22,18,18,18,22]},
+      {name:'ملخص التقرير',rows:summaryRows,widths:[34,90]},
       {name:'حالة العملاء',rows:clientRows,widths:[30,18,18,20,24]},
       {name:'الفواتير',rows:invoiceRows,widths:[13,22,18,30,18,14,26,12,15,17,18,32]},
-      {name:'حركات المخزون',rows:moveRows,widths:[22,16,26,15,12,12,16,35]},
+      {name:'كل الفواتير',rows:allInvoiceRows,widths:[13,22,18,30,18,16,18,32]},
+      {name:'حركات المخزون',rows:moveRows,widths:[22,18,26,15,12,12,16,35]},
+      {name:'كل حركات المخزون',rows:allMoveRows,widths:[22,18,18,26,15,12,12,16,35]},
       {name:'سجل النشاط',rows:auditRows,widths:[22,28,18,14,35]},
-      {name:'كل العمليات',rows:opRows,widths:[22,20,18,30,18,15,26,14,15,22,35]}
+      {name:'كل البيانات على الجهاز',rows:rawRows,widths:[18,22,18,20,18,30,26,14,15,35]}
     ];
     const bytes=buildXlsx(defs),blob=new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),url=URL.createObjectURL(blob),a=document.createElement('a');
-    a.href=url;a.download=`جمعيتي_تقرير_${from}${count===3?'-'+to:''}.xlsx`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
+    a.href=url;a.download=`جمعيتي_تقرير_${from}${count===3?'-'+to:''}.xlsx`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);
     const totalRows=invoiceInRange.length+moves.length+audits.length;
-    toast(`تم إنشاء تقرير Excel وفيه ${totalRows} سجلًا من ${monthLabel(from)}${count===3?' إلى '+monthLabel(to):''}.`);
+    toast(`تم إنشاء التقرير: ${totalRows} عملية في الفترة + جميع البيانات الموجودة على الجهاز.`);
   }catch(err){console.error(err);alert('تعذر إنشاء تقرير Excel: '+(err?.message||'خطأ غير معروف'))}
 }
 async function resetAll(){
