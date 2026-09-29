@@ -1,9 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
-<rect width="256" height="256" rx="52" fill="#0f766e"/>
-<path d="M45 105 128 45l83 60v18H45z" fill="#fff"/>
-<circle cx="91" cy="117" r="18" fill="#0f766e"/><circle cx="128" cy="110" r="20" fill="#0f766e"/><circle cx="165" cy="117" r="18" fill="#0f766e"/>
-<path d="M65 139c9-13 29-16 42-3 6 6 9 16 9 27H56c0-10 3-18 9-24zm50-5c11-16 35-18 47-1 7 9 10 19 10 30h-68c0-11 4-21 11-29zm39 7c12-10 29-7 39 5 6 7 9 15 9 23h-46c0-12-1-20-2-28z" fill="#fff"/>
-<path d="M152 143h38l10 39h-43z" fill="#fff"/><path d="M195 148h16l10 8" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
-<circle cx="164" cy="187" r="8" fill="#0f766e"/><circle cx="204" cy="187" r="8" fill="#0f766e"/>
-<text x="128" y="228" text-anchor="middle" font-family="Arial,Tahoma,sans-serif" font-size="34" font-weight="700" fill="#fff">جمعيتي</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="#0f766e"/><rect x="105" y="105" width="302" height="302" rx="30" fill="#fff"/><text x="256" y="250" text-anchor="middle" font-family="Arial" font-size="72" font-weight="700" fill="#0f766e">جمعيتي</text><text x="256" y="305" text-anchor="middle" font-family="Arial" font-size="30" fill="#172033">إدارة التموين</text></svg>
