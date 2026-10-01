@@ -1,5 +1,5 @@
 const DB_NAME='GamayatiDB',DB_VERSION=6;
-const APP_VERSION=9, DELETE_PASSWORD='Osama@Rania@122026';
+const APP_VERSION=11, DELETE_PASSWORD='Osama@Rania@122026';
 let db,clients=[],products=[],inventory=[],invoices=[],inventoryTransactions=[],settings={monthEndDay:25};
 let deferredInstallPrompt=null;
 const $=id=>document.getElementById(id);
@@ -76,9 +76,13 @@ async function refresh(){
   renderDashboard();renderClients();renderProducts();renderInventory();renderDispenseSearch();renderInvoices();renderArchive();ensureFirstLine();
 }
 
+function invoiceMonthKey(i){
+  return reportInvoiceMonth(i)||'';
+}
+
 function currentStatus(c){
   const m=localMonthKey();
-  const invs=invoices.filter(i=>i.clientId===c.id&&i.serviceMonth===m);
+  const invs=invoices.filter(i=>String(i.clientId)===String(c.id)&&invoiceMonthKey(i)===m);
   if(invs.some(i=>i.status==='CONFIRMED'&&!i.reversed)) return ['green','✓ تم الصرف'];
   if(new Date().getDate()>settings.monthEndDay) return ['red','* فات عليه الشهر'];
   return ['yellow','! لم يصرف'];
@@ -86,7 +90,7 @@ function currentStatus(c){
 function renderDashboard(){
   const activeC=activeClients(),activeP=activeProducts(),m=localMonthKey();
   $('statClients').textContent=activeC.length;$('statProducts').textContent=activeP.length;
-  $('statDispensed').textContent=new Set(invoices.filter(i=>i.serviceMonth===m&&i.status==='CONFIRMED'&&!i.reversed).map(i=>i.clientId)).size;
+  $('statDispensed').textContent=new Set(invoices.filter(i=>invoiceMonthKey(i)===m&&i.status==='CONFIRMED'&&!i.reversed).map(i=>i.clientId)).size;
   $('statLowStock').textContent=activeP.filter(p=>Number(inventory.find(i=>i.productId===p.id)?.quantity||0)<=Number(p.minimumStock||0)).length;
   $('currentMonthLabel').textContent=monthLabel(m);
   const q=($('dashboardClientSearch')?.value||'').trim().toLowerCase();
@@ -194,28 +198,44 @@ async function reverseInvoice(id){
 function renderInvoices(){
   const q=($('invoiceSearch').value||'').trim().toLowerCase();
   const list=invoices.slice().sort((a,b)=>b.id-a.id).filter(i=>[i.id,i.clientNameSnapshot,i.cardNumberSnapshot,i.serviceMonth].join(' ').toLowerCase().includes(q));
-  $('invoicesList').innerHTML=list.map(i=>`<div class="item invoice-card" onclick="showInvoiceDetails(${i.id})"><div class="info"><b>فاتورة #${i.id}</b><div>${esc(i.clientNameSnapshot)} — ${esc(i.cardNumberSnapshot)}</div><div class="invoice-meta"><span class="muted">${monthLabel(i.serviceMonth)}</span><span class="muted">${localDateTime(i.issuedAt)}</span><span class="muted">${money(i.total)} جنيه</span>${i.notes?'<span class="status yellow">بها ملاحظة</span>':''}</div>${i.notes?`<div class="note-box">${esc(i.notes)}</div>`:''}</div><div class="invoice-actions" onclick="event.stopPropagation()"><span class="status ${i.reversed?'red':'green'}">${i.reversed?'معكوسة':'مؤكدة'}</span>${!i.reversed?`<button class="danger" type="button" onclick="reverseInvoice(${i.id})">عكس العملية</button>`:''}<button class="secondary" type="button" onclick="showInvoiceDetails(${i.id})">فتح</button></div></div>`).join('')||'<div class="panel">لا توجد فواتير مطابقة.</div>';
+  $('invoicesList').innerHTML=list.map(i=>`<div class="item invoice-card" onclick="showInvoiceDetails(${i.id})"><div class="info"><b>فاتورة #${i.id}</b><div>${esc(i.clientNameSnapshot)} — ${esc(i.cardNumberSnapshot)}</div><div class="invoice-meta"><span class="muted">${monthLabel(invoiceMonthKey(i))}</span><span class="muted">${localDateTime(i.issuedAt)}</span><span class="muted">${money(i.total)} جنيه</span>${i.notes?'<span class="status yellow">بها ملاحظة</span>':''}</div>${i.notes?`<div class="note-box">${esc(i.notes)}</div>`:''}</div><div class="invoice-actions" onclick="event.stopPropagation()"><span class="status ${i.reversed?'red':'green'}">${i.reversed?'معكوسة':'مؤكدة'}</span>${!i.reversed?`<button class="danger" type="button" onclick="reverseInvoice(${i.id})">عكس العملية</button>`:''}<button class="secondary" type="button" onclick="showInvoiceDetails(${i.id})">فتح</button></div></div>`).join('')||'<div class="panel">لا توجد فواتير مطابقة.</div>';
 }
 function openHistoryInvoice(id){$('clientDetailsDialog').close();showInvoiceDetails(id)}
 
 async function showInvoiceDetails(id){
   const inv=invoices.find(i=>i.id===id);if(!inv)return;const items=(await all('invoiceItems')).filter(x=>x.invoiceId===id);
-  $('invoiceDetailsContent').innerHTML=`<div class="invoice-detail-head"><div><h3>تفاصيل الفاتورة #${inv.id}</h3><div><b>العميل:</b> ${esc(inv.clientNameSnapshot)}</div><div><b>رقم البطاقة:</b> ${esc(inv.cardNumberSnapshot)}</div><div><b>الشهر:</b> ${monthLabel(inv.serviceMonth)}</div><div><b>التاريخ:</b> ${localDateTime(inv.issuedAt)}</div></div><span class="status ${inv.reversed?'red':'green'}">${inv.reversed?'معكوسة':'مؤكدة'}</span></div>
+  $('invoiceDetailsContent').innerHTML=`<div class="invoice-detail-head"><div><h3>تفاصيل الفاتورة #${inv.id}</h3><div><b>العميل:</b> ${esc(inv.clientNameSnapshot)}</div><div><b>رقم البطاقة:</b> ${esc(inv.cardNumberSnapshot)}</div><div><b>الشهر:</b> ${monthLabel(invoiceMonthKey(inv))}</div><div><b>التاريخ:</b> ${localDateTime(inv.issuedAt)}</div></div><span class="status ${inv.reversed?'red':'green'}">${inv.reversed?'معكوسة':'مؤكدة'}</span></div>
     ${inv.notes?`<div class="note-box"><b>ملاحظات الفاتورة:</b><br>${esc(inv.notes)}</div>`:''}
     <table class="invoice-table"><thead><tr><th>الصنف</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th></tr></thead><tbody>${items.map(x=>`<tr><td>${esc(x.productNameSnapshot)}</td><td>${qtyText(x.quantity)}</td><td>${money(x.unitPrice)}</td><td>${money(x.lineTotal)}</td></tr>`).join('')}</tbody></table>
     <div class="invoice-total">الإجمالي: ${money(inv.total)} جنيه</div>${inv.reversed?`<div class="warning">تم عكس هذه العملية بتاريخ ${localDateTime(inv.reversedAt)}. الفاتورة الأصلية محفوظة ولا تُحذف.</div>`:''}`;
   $('invoiceDialog').showModal();
 }
 
-function clientMonths(c){
-  const start=new Date(c.createdAt||c.updatedAt||now());let key=localMonthKey(start),end=localMonthKey();const out=[];
-  while(key<=end){out.push(key);const [y,m]=key.split('-').map(Number);const d=new Date(y,m,1);d.setMonth(d.getMonth()+1);key=localMonthKey(d)}
-  if(!out.length)out.push(end);return out;
+function clientMonths(c,invs=[]){
+  const invoiceMonths=invs.map(invoiceMonthKey).filter(Boolean).sort();
+  let start=invoiceMonths[0]||normalizeMonthValue(firstValue(c,['createdAt','updatedAt','date']))||localMonthKey();
+  const end=localMonthKey();
+  if(start>end)start=end;
+  const out=[];
+  for(let key=start;key<=end;key=shiftMonth(key,1)) out.push(key);
+  if(!out.length)out.push(end);
+  return out;
 }
 async function showClientDetails(id){
-  const c=clients.find(x=>x.id===id);if(!c)return;const months=clientMonths(c);
-  const invs=invoices.filter(i=>i.clientId===id);
-  const rows=months.slice().reverse().map(m=>{const mi=invs.filter(i=>i.serviceMonth===m);const active=mi.find(i=>i.status==='CONFIRMED'&&!i.reversed),reversed=mi.some(i=>i.reversed);const label=active?'✓ تم الصرف':(reversed?'↩ تم عكس العملية':'— لم يصرف');const cl=active?'green':(reversed?'gray':(m===localMonthKey()&&new Date().getDate()>settings.monthEndDay?'red':'yellow'));return `<div class="history-row"><div><b>${esc(monthLabel(m))}</b></div><div><span class="status ${cl}">${label}</span>${active?` <span class="muted">${localDateTime(active.issuedAt)}</span>`:''}</div><div>${active?`<button class="secondary" onclick="openHistoryInvoice(${active.id})">الفاتورة</button>`:''}</div></div>`}).join('');
+  const c=clients.find(x=>String(x.id)===String(id));if(!c)return;
+  const invs=invoices.filter(i=>String(i.clientId)===String(id));
+  const months=clientMonths(c,invs);
+  const rows=months.slice().reverse().map(m=>{
+    const mi=invs.filter(i=>invoiceMonthKey(i)===m);
+    const active=mi.find(i=>i.status==='CONFIRMED'&&!i.reversed);
+    const reversedInv=!active?mi.find(i=>i.reversed):null;
+    const fallbackInv=!active&&!reversedInv?mi.find(i=>i.status==='CONFIRMED')||mi[0]:null;
+    const shownInv=active||reversedInv||fallbackInv;
+    const label=active?'✓ تم الصرف':(reversedInv?'↩ تم عكس العملية':(fallbackInv?'✓ توجد فاتورة محفوظة':'— لم يصرف'));
+    const cl=active?'green':(reversedInv?'gray':(fallbackInv?'blue':(m===localMonthKey()&&new Date().getDate()>settings.monthEndDay?'red':'yellow')));
+    const dateInv=shownInv?reportInvoiceDate(shownInv):'';
+    return `<div class="history-row"><div><b>${esc(monthLabel(m))}</b></div><div><span class="status ${cl}">${label}</span>${shownInv&&dateInv?` <span class="muted">${localDateTime(dateInv)}</span>`:''}</div><div>${shownInv?`<button class="secondary" onclick="openHistoryInvoice(${shownInv.id})">الفاتورة</button>`:''}</div></div>`
+  }).join('');
   const invCount=invs.filter(i=>i.status==='CONFIRMED'&&!i.reversed).length;
   $('clientDetailsContent').innerHTML=`<h3>سجل العميل: ${esc(c.fullName)}</h3><div class="selected-card"><b>رقم البطاقة:</b> ${esc(c.cardNumber)}<br><b>عدد أفراد التموين:</b> ${qtyText(c.rationCount)} — <b>الخبز:</b> ${qtyText(c.flourCount)}<br><b>الهاتف:</b> ${esc(c.phone||'—')}<br><b>العنوان:</b> ${esc(c.address||'—')}</div>${c.notes?`<div class="note-box"><b>ملاحظات العميل:</b><br>${esc(c.notes)}</div>`:''}<div class="muted">إجمالي عمليات الصرف المؤكدة المحفوظة: ${invCount}</div><div class="history"><h4>سجل كل الشهور</h4>${rows}</div>`;
   $('clientDetailsDialog').showModal();
@@ -298,7 +318,7 @@ function reportMoveDate(x){return firstValue(x,['createdAt','recordedAt','date',
 function reportMoveMonth(x){return normalizeMonthValue(firstValue(x,['month','period']))||normalizeMonthValue(reportMoveDate(x))}
 function reportAuditDate(a){return firstValue(a,['createdAt','recordedAt','date','timestamp','datetime','created_at'])}
 function reportAuditMonth(a){return normalizeMonthValue(firstValue(a,['month','period']))||normalizeMonthValue(reportAuditDate(a))}
-function reportInvoiceStatus(i){const s=String(firstValue(i,['status','state'])||'').toUpperCase();if(['CONFIRMED','COMPLETED','PAID','DONE','مؤكدة','تم الصرف','CONFIRM'].includes(s))return 'مؤكدة';return i?.reversed?'معكوسة':(s||'غير محددة')}
+function reportInvoiceStatus(i){if(i?.reversed)return'معكوسة';const s=String(firstValue(i,['status','state'])||'').toUpperCase();if(['CONFIRMED','COMPLETED','PAID','DONE','مؤكدة','تم الصرف','CONFIRM'].includes(s))return'مؤكدة';return s||'غير محددة'}
 function reportIsConfirmed(i){const s=String(firstValue(i,['status','state'])||'').toUpperCase();return ['CONFIRMED','COMPLETED','PAID','DONE','مؤكدة','تم الصرف','CONFIRM'].includes(s)}
 function reportClientId(c){return firstValue(c,['id','clientId'])}
 function reportProductId(p){return firstValue(p,['id','productId'])}
